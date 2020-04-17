@@ -1,0 +1,188 @@
+# Presentation scenario file as used in Vetter P., Bola L., Reich L., Bennett M., Muckli L., & Amedi A. (2020). Decoding natural sounds in early “visual” cortex of congenitally blind individuals. Current Biology
+
+#written by Petra Vetter with code excerpts by Fraser W. Smith
+
+
+#This is the short version with 6s sound stimulation and 6s ISI
+
+#Subjects are presented with 3 different types of sound stimuli (6 sec each) with a break of 6 sec in between
+#no visual stimulation, apart from "Experiment running..." shown on the screen for the experimenter
+#outputs the trial sequence of the sounds (0=ISI, 1-3 = sounds) and the trial onsets as time stamps
+
+
+#make sure the audio settings are set to 16 bit and mono
+
+scenario_type=fMRI; 
+pulses_per_scan=1;
+pulse_code=225; # character T
+active_buttons=1; 
+button_codes=1; #C for scanner trigger
+default_background_color=0,0,0;
+
+default_monitor_sounds = false;
+
+begin;
+
+#make an array of the normalised sounds, change paths accordingly
+
+
+array{
+sound{wavefile{filename = "C:\\Documents and Settings\\petrav\\Desktop\\AudioVisualExp\\NORM\\Forest_6sec.wav";};}s1;
+sound{wavefile{filename = "C:\\Documents and Settings\\petrav\\Desktop\\AudioVisualExp\\NORM\\PeopleTalking_6sec.wav";};}s2;
+sound{wavefile{filename = "C:\\Documents and Settings\\petrav\\Desktop\\AudioVisualExp\\NORM\\Traffic_6sec.wav";};}s3;
+}sounds;
+
+trial{ trial_duration = 6000; stimulus_event{sound s1;}event;}soundtrial;
+
+trial{trial_duration = 6000;}baseline; #nothing is presented for 6 sec
+trial{trial_duration = 12000;}baseline_start; #baseline for start
+
+
+#taken from Fraser's script - for scanner sync
+# just a structure to put in txt info
+text {
+   caption = "original text"; 
+   font_size = 24;
+   preload = false;
+} text1;
+
+trial {   
+#trial_duration = 6000;     
+   picture {
+      text text1;
+      x = 0; y = 0;
+   }; 
+} trial1;
+
+##############################################################
+begin_pcl;
+
+int repetitions = 6;
+int nr_stimuli = 3;
+
+#make trial order vector
+array <int>trial_order[0];
+
+loop int r=1 until r>repetitions begin
+	loop int c=1 until c>nr_stimuli begin 
+		trial_order.add(c);
+		c=c+1;
+	end;
+	r=r+1;
+end;
+
+#this is a sub taken from the Help doc 
+#it makes sure that in the shuffled stim sequence there are never two of the same stimuli subsequently
+sub
+   bool sequence_ok( int limit )
+begin
+   bool rval = true;
+   int last = 0;
+   int in_a_row = 0;
+   loop int i = 1 until i > trial_order.count() begin
+      if (trial_order[i] == last) then
+         in_a_row = in_a_row + 1;
+         if (in_a_row > limit) then
+            rval = false;
+            break
+         end
+      else
+         in_a_row = 1
+      end;
+      last = trial_order[i];
+      i = i + 1
+   end;
+   return rval
+end;
+
+trial_order.shuffle();
+
+loop until sequence_ok( 1 ) begin
+   trial_order.shuffle();
+end;
+
+
+#output file
+preset string protstr = "Subject"; #whatever is typed in at the prompt
+
+output_file onsets = new output_file;
+onsets.open(protstr + "_AVScenesBlindShort_onsets.txt", true);
+
+output_file trialseq = new output_file;
+trialseq.open(protstr + "_AVScenesBlindShort_trialseq.txt", true);
+
+#save the trial_order
+loop int i=1 until i>trial_order.count() begin
+	trialseq.print(string(trial_order[i]) + "\n"); 
+	i=i+1;
+end;
+
+
+
+#######################
+#Scanner  sync
+##########################
+
+####taken from Fraser's script
+sub
+   present_text( string caption )
+begin
+   text1.set_caption( caption );
+   text1.redraw();  
+   trial1.present();
+end;
+
+
+## scanner trigger function
+sub
+	sync_scanner(int nDummies)
+begin
+
+	# wait for a C key press (so program not started with scanner scouts etc)
+	int CurrCPress=response_manager.total_response_count(1); #1=C
+	loop
+	until response_manager.total_response_count(1) == (CurrCPress+1)
+	begin
+	present_text("Waiting for C KeyPress");
+	end;
+
+	# sync with scanner
+	int CurrPulseCount = pulse_manager.main_pulse_count();
+	loop
+	until pulse_manager.main_pulse_count() == (CurrPulseCount+nDummies)
+	begin
+	present_text("Waiting for Scanner Trigger");
+	end;
+end;
+
+
+### SCANNER VARIABLE
+
+sync_scanner(1);
+
+
+present_text("Experiment running...");
+
+
+onsets.print(string(0)+ "	" + string(clock.time()) +"\n"); #baseline coded as 0
+
+baseline_start.present(); #present baseline at the beginning of the loop
+
+
+loop int trial_counter = 1  until trial_counter > trial_order.count()  begin
+
+onsets.print(string(trial_order[trial_counter])+ "	" + string(clock.time()) +"\n");
+#save onset time plus sound number
+ 
+event.set_stimulus(sounds[trial_order[trial_counter]]); 
+soundtrial.present();
+
+onsets.print(string(0)+ "	" + string(clock.time()) +"\n"); #baseline coded as 0
+
+baseline.present();
+
+trial_counter = trial_counter +1;
+
+end;
+
+baseline.present(); #present baseline again to make it 12s
