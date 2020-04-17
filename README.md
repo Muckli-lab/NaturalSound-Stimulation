@@ -5,7 +5,7 @@ Stimulation Material for the Paper Vetter et al. (2020). Natural sounds used to 
 Auditory stimulation code and sound files 
 
 ## Requirements:
-You need Presentation (Neurobehavioural Systems)[https://www.neurobs.com/]
+You need Presentation [(Neurobehavioural Systems)https://www.neurobs.com/]
 
 ## Authors: 
 The code was originally created by Petra Vetter for the 2010 study and reused for the 2020 study
